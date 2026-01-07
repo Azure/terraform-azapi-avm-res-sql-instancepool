@@ -6,13 +6,11 @@ variable "location" {
 
 variable "name" {
   type        = string
-  description = "The name of the this resource."
+  description = "The name of the SQL Instance Pool."
 
   validation {
-    condition     = can(regex("TODO", var.name))
-    error_message = "The name must be TODO." # TODO remove the example below once complete:
-    #condition     = can(regex("^[a-z0-9]{5,50}$", var.name))
-    #error_message = "The name must be between 5 and 50 characters long and can only contain lowercase letters and numbers."
+    condition     = can(regex("^[a-z0-9-]{1,128}$", var.name))
+    error_message = "The name must be between 1 and 128 characters long and can only contain lowercase letters, numbers, and hyphens."
   }
 }
 
@@ -136,67 +134,21 @@ DESCRIPTION
   nullable    = false
 }
 
+# Note: Private endpoints are not supported at the SQL Instance Pool level.
+# Private endpoints should be configured on individual Managed Instances within the pool.
+# tflint-ignore: terraform_unused_declarations
 variable "private_endpoints" {
-  type = map(object({
-    name = optional(string, null)
-    role_assignments = optional(map(object({
-      role_definition_id_or_name             = string
-      principal_id                           = string
-      description                            = optional(string, null)
-      skip_service_principal_aad_check       = optional(bool, false)
-      condition                              = optional(string, null)
-      condition_version                      = optional(string, null)
-      delegated_managed_identity_resource_id = optional(string, null)
-    })), {})
-    lock = optional(object({
-      kind = string
-      name = optional(string, null)
-    }), null)
-    tags                                    = optional(map(string), null)
-    subnet_resource_id                      = string
-    private_dns_zone_group_name             = optional(string, "default")
-    private_dns_zone_resource_ids           = optional(set(string), [])
-    application_security_group_associations = optional(map(string), {})
-    private_service_connection_name         = optional(string, null)
-    network_interface_name                  = optional(string, null)
-    location                                = optional(string, null)
-    resource_group_name                     = optional(string, null)
-    ip_configurations = optional(map(object({
-      name               = string
-      private_ip_address = string
-    })), {})
-  }))
+  type        = map(any)
   default     = {}
-  description = <<DESCRIPTION
-A map of private endpoints to create on this resource. The map key is deliberately arbitrary to avoid issues where map keys maybe unknown at plan time.
-
-- `name` - (Optional) The name of the private endpoint. One will be generated if not set.
-- `role_assignments` - (Optional) A map of role assignments to create on the private endpoint. The map key is deliberately arbitrary to avoid issues where map keys maybe unknown at plan time. See `var.role_assignments` for more information.
-- `lock` - (Optional) The lock level to apply to the private endpoint. Default is `None`. Possible values are `None`, `CanNotDelete`, and `ReadOnly`.
-- `tags` - (Optional) A mapping of tags to assign to the private endpoint.
-- `subnet_resource_id` - The resource ID of the subnet to deploy the private endpoint in.
-- `private_dns_zone_group_name` - (Optional) The name of the private DNS zone group. One will be generated if not set.
-- `private_dns_zone_resource_ids` - (Optional) A set of resource IDs of private DNS zones to associate with the private endpoint. If not set, no zone groups will be created and the private endpoint will not be associated with any private DNS zones. DNS records must be managed external to this module.
-- `application_security_group_resource_ids` - (Optional) A map of resource IDs of application security groups to associate with the private endpoint. The map key is deliberately arbitrary to avoid issues where map keys maybe unknown at plan time.
-- `private_service_connection_name` - (Optional) The name of the private service connection. One will be generated if not set.
-- `network_interface_name` - (Optional) The name of the network interface. One will be generated if not set.
-- `location` - (Optional) The Azure location where the resources will be deployed. Defaults to the location of the resource group.
-- `resource_group_name` - (Optional) The resource group where the resources will be deployed. Defaults to the resource group of this resource.
-- `ip_configurations` - (Optional) A map of IP configurations to create on the private endpoint. If not specified the platform will create one. The map key is deliberately arbitrary to avoid issues where map keys maybe unknown at plan time.
-  - `name` - The name of the IP configuration.
-  - `private_ip_address` - The private IP address of the IP configuration.
-DESCRIPTION
+  description = "Private endpoints are not supported for SQL Instance Pools. This variable is kept for AVM interface compatibility but will be ignored."
   nullable    = false
 }
 
-# This variable is used to determine if the private_dns_zone_group block should be included,
-# or if it is to be managed externally, e.g. using Azure Policy.
-# https://github.com/Azure/terraform-azurerm-avm-res-keyvault-vault/issues/32
-# Alternatively you can use AzAPI, which does not have this issue.
+# tflint-ignore: terraform_unused_declarations
 variable "private_endpoints_manage_dns_zone_group" {
   type        = bool
   default     = true
-  description = "Whether to manage private DNS zone groups with this module. If set to false, you must manage private DNS zone groups externally, e.g. using Azure Policy."
+  description = "Private endpoints are not supported for SQL Instance Pools. This variable is kept for AVM interface compatibility but will be ignored."
   nullable    = false
 }
 
@@ -234,4 +186,57 @@ variable "tags" {
   type        = map(string)
   default     = null
   description = "(Optional) Tags of the resource."
+}
+
+# SQL Instance Pool specific variables
+variable "sku" {
+  type = object({
+    name     = string
+    tier     = optional(string, null)
+    family   = optional(string, null)
+    capacity = optional(number, null)
+  })
+  description = <<DESCRIPTION
+SKU configuration for the SQL Instance Pool. The following properties can be specified:
+
+- `name` - (Required) The name of the SKU. Possible values include `GP_Gen5`, `BC_Gen5`, etc.
+- `tier` - (Optional) The tier of the SKU. Possible values are `GeneralPurpose` and `BusinessCritical`.
+- `family` - (Optional) The family of hardware. Possible values include `Gen5`.
+- `capacity` - (Optional) The capacity for the SKU.
+DESCRIPTION
+  nullable    = false
+}
+
+variable "license_type" {
+  type        = string
+  description = "The license type to apply for this instance pool. Possible values are `LicenseIncluded` and `BasePrice`."
+  nullable    = false
+
+  validation {
+    condition     = contains(["LicenseIncluded", "BasePrice"], var.license_type)
+    error_message = "The license_type must be either 'LicenseIncluded' or 'BasePrice'."
+  }
+}
+
+variable "subnet_id" {
+  type        = string
+  description = "The ID of the subnet where the SQL Instance Pool should be created."
+  nullable    = false
+}
+
+variable "vcores" {
+  type        = number
+  description = "The number of vCores for the instance pool."
+  nullable    = false
+
+  validation {
+    condition     = contains([8, 16, 24, 32, 40, 64, 80, 128], var.vcores)
+    error_message = "The vcores must be one of: 8, 16, 24, 32, 40, 64, 80, or 128."
+  }
+}
+
+variable "maintenance_configuration_id" {
+  type        = string
+  default     = null
+  description = "(Optional) The ID of the maintenance configuration to associate with the instance pool."
 }
