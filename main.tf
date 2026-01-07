@@ -1,14 +1,12 @@
-# Data source to get the resource group
-data "azurerm_resource_group" "parent" {
-  name = var.resource_group_name
-}
+# Data source to get the current subscription
+data "azapi_client_config" "current" {}
 
 # SQL Instance Pool resource
 resource "azapi_resource" "this" {
   type      = "Microsoft.Sql/instancePools@2024-05-01-preview"
   name      = var.name
   location  = var.location
-  parent_id = data.azurerm_resource_group.parent.id
+  parent_id = "/subscriptions/${data.azapi_client_config.current.subscription_id}/resourceGroups/${var.resource_group_name}"
   tags      = var.tags
 
   body = {
@@ -35,25 +33,41 @@ resource "azapi_resource" "this" {
 }
 
 # required AVM resources interfaces
-resource "azurerm_management_lock" "this" {
+resource "azapi_resource" "lock" {
   count = var.lock != null ? 1 : 0
 
-  lock_level = var.lock.kind
-  name       = coalesce(var.lock.name, "lock-${var.lock.kind}")
-  scope      = azapi_resource.this.id
-  notes      = var.lock.kind == "CanNotDelete" ? "Cannot delete the resource or its child resources." : "Cannot delete or modify the resource or its child resources."
+  type      = "Microsoft.Authorization/locks@2020-05-01"
+  name      = coalesce(var.lock.name, "lock-${var.lock.kind}")
+  parent_id = azapi_resource.this.id
+
+  body = {
+    properties = {
+      level = var.lock.kind
+      notes = var.lock.kind == "CanNotDelete" ? "Cannot delete the resource or its child resources." : "Cannot delete or modify the resource or its child resources."
+    }
+  }
 }
 
-resource "azurerm_role_assignment" "this" {
+resource "azapi_resource" "role_assignment" {
   for_each = var.role_assignments
 
-  principal_id                           = each.value.principal_id
-  scope                                  = azapi_resource.this.id
-  condition                              = each.value.condition
-  condition_version                      = each.value.condition_version
-  delegated_managed_identity_resource_id = each.value.delegated_managed_identity_resource_id
-  principal_type                         = each.value.principal_type
-  role_definition_id                     = strcontains(lower(each.value.role_definition_id_or_name), lower(local.role_definition_resource_substring)) ? each.value.role_definition_id_or_name : null
-  role_definition_name                   = strcontains(lower(each.value.role_definition_id_or_name), lower(local.role_definition_resource_substring)) ? null : each.value.role_definition_id_or_name
-  skip_service_principal_aad_check       = each.value.skip_service_principal_aad_check
+  type      = "Microsoft.Authorization/roleAssignments@2022-04-01"
+  name      = uuidv5("url", "${azapi_resource.this.id}/${each.value.principal_id}/${each.value.role_definition_id_or_name}")
+  parent_id = azapi_resource.this.id
+
+  body = {
+    properties = {
+      roleDefinitionId = strcontains(lower(each.value.role_definition_id_or_name), lower(local.role_definition_resource_substring)) ? each.value.role_definition_id_or_name : "/subscriptions/${data.azapi_client_config.current.subscription_id}/providers/Microsoft.Authorization/roleDefinitions/${each.value.role_definition_id_or_name}"
+      principalId      = each.value.principal_id
+      principalType    = each.value.principal_type
+      description      = each.value.description
+      condition        = each.value.condition
+      conditionVersion = each.value.condition_version
+      delegatedManagedIdentityResourceId = each.value.delegated_managed_identity_resource_id
+    }
+  }
+
+  lifecycle {
+    ignore_changes = [body.properties.principalType]
+  }
 }
