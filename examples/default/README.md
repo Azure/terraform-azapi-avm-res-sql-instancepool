@@ -62,13 +62,13 @@ resource "azapi_resource" "vnet" {
   name      = module.naming.virtual_network.name_unique
   parent_id = azapi_resource.rg.id
   type      = "Microsoft.Network/virtualNetworks@2023-11-01"
-  body = jsonencode({
+  body = {
     properties = {
       addressSpace = {
         addressPrefixes = ["10.0.0.0/16"]
       }
     }
-  })
+  }
 }
 
 # Subnet for the SQL Instance Pool
