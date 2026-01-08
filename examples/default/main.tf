@@ -42,26 +42,34 @@ module "naming" {
   version = "0.4.2"
 }
 
-# This is required for resource modules
-resource "azurerm_resource_group" "this" {
+# Create resource group
+resource "azapi_resource" "rg" {
   location = module.regions.regions[random_integer.region_index.result].name
   name     = module.naming.resource_group.name_unique
+  type     = "Microsoft.Resources/resourceGroups@2020-06-01"
 }
 
 # Virtual Network for the SQL Instance Pool
-resource "azurerm_virtual_network" "this" {
-  location            = azurerm_resource_group.this.location
-  name                = module.naming.virtual_network.name_unique
-  resource_group_name = azurerm_resource_group.this.name
-  address_space       = ["10.0.0.0/16"]
+resource "azapi_resource" "vnet" {
+  location  = azapi_resource.rg.location
+  name      = module.naming.virtual_network.name_unique
+  parent_id = azapi_resource.rg.id
+  type      = "Microsoft.Network/virtualNetworks@2023-11-01"
+  body = jsonencode({
+    properties = {
+      addressSpace = {
+        addressPrefixes = ["10.0.0.0/16"]
+      }
+    }
+  })
 }
 
 # Subnet for the SQL Instance Pool
 resource "azurerm_subnet" "this" {
   address_prefixes     = ["10.0.1.0/24"]
   name                 = module.naming.subnet.name_unique
-  resource_group_name  = azurerm_resource_group.this.name
-  virtual_network_name = azurerm_virtual_network.this.name
+  resource_group_name  = azapi_resource.rg.name
+  virtual_network_name = azapi_resource.vnet.name
 
   delegation {
     name = "managedinstancedelegation"
@@ -84,9 +92,9 @@ module "test" {
   license_type = "LicenseIncluded"
   # source             = "Azure/avm-res-sql-instancepool/azurerm"
   # ...
-  location            = azurerm_resource_group.this.location
-  name                = lower(module.naming.sql_managed_instance.name_unique)
-  resource_group_name = azurerm_resource_group.this.name
+  location            = azapi_resource.rg.location
+  name                = "sqlinstpool${random_integer.region_index.result}"
+  resource_group_name = azapi_resource.rg.name
   # SQL Instance Pool specific configuration
   sku = {
     name     = "GP_Gen5"
