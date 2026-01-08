@@ -1,3 +1,14 @@
+variable "license_type" {
+  type        = string
+  description = "The license type to apply for this instance pool. Possible values are `LicenseIncluded` and `BasePrice`."
+  nullable    = false
+
+  validation {
+    condition     = contains(["LicenseIncluded", "BasePrice"], var.license_type)
+    error_message = "The license_type must be either 'LicenseIncluded' or 'BasePrice'."
+  }
+}
+
 variable "location" {
   type        = string
   description = "Azure region where the resource should be deployed."
@@ -18,6 +29,42 @@ variable "name" {
 variable "resource_group_name" {
   type        = string
   description = "The resource group where the resources will be deployed."
+}
+
+# SQL Instance Pool specific variables
+variable "sku" {
+  type = object({
+    name     = string
+    tier     = optional(string, null)
+    family   = optional(string, null)
+    capacity = optional(number, null)
+  })
+  description = <<DESCRIPTION
+SKU configuration for the SQL Instance Pool. The following properties can be specified:
+
+- `name` - (Required) The name of the SKU. Possible values include `GP_Gen5`, `BC_Gen5`, etc.
+- `tier` - (Optional) The tier of the SKU. Possible values are `GeneralPurpose` and `BusinessCritical`.
+- `family` - (Optional) The family of hardware. Possible values include `Gen5`.
+- `capacity` - (Optional) The capacity for the SKU.
+DESCRIPTION
+  nullable    = false
+}
+
+variable "subnet_id" {
+  type        = string
+  description = "The ID of the subnet where the SQL Instance Pool should be created."
+  nullable    = false
+}
+
+variable "vcores" {
+  type        = number
+  description = "The number of vCores for the instance pool."
+  nullable    = false
+
+  validation {
+    condition     = contains([8, 16, 24, 32, 40, 64, 80, 128], var.vcores)
+    error_message = "The vcores must be one of: 8, 16, 24, 32, 40, 64, 80, or 128."
+  }
 }
 
 # required AVM interfaces
@@ -118,6 +165,12 @@ DESCRIPTION
   }
 }
 
+variable "maintenance_configuration_id" {
+  type        = string
+  default     = null
+  description = "(Optional) The ID of the maintenance configuration to associate with the instance pool."
+}
+
 # tflint-ignore: terraform_unused_declarations
 variable "managed_identities" {
   type = object({
@@ -186,57 +239,4 @@ variable "tags" {
   type        = map(string)
   default     = null
   description = "(Optional) Tags of the resource."
-}
-
-# SQL Instance Pool specific variables
-variable "sku" {
-  type = object({
-    name     = string
-    tier     = optional(string, null)
-    family   = optional(string, null)
-    capacity = optional(number, null)
-  })
-  description = <<DESCRIPTION
-SKU configuration for the SQL Instance Pool. The following properties can be specified:
-
-- `name` - (Required) The name of the SKU. Possible values include `GP_Gen5`, `BC_Gen5`, etc.
-- `tier` - (Optional) The tier of the SKU. Possible values are `GeneralPurpose` and `BusinessCritical`.
-- `family` - (Optional) The family of hardware. Possible values include `Gen5`.
-- `capacity` - (Optional) The capacity for the SKU.
-DESCRIPTION
-  nullable    = false
-}
-
-variable "license_type" {
-  type        = string
-  description = "The license type to apply for this instance pool. Possible values are `LicenseIncluded` and `BasePrice`."
-  nullable    = false
-
-  validation {
-    condition     = contains(["LicenseIncluded", "BasePrice"], var.license_type)
-    error_message = "The license_type must be either 'LicenseIncluded' or 'BasePrice'."
-  }
-}
-
-variable "subnet_id" {
-  type        = string
-  description = "The ID of the subnet where the SQL Instance Pool should be created."
-  nullable    = false
-}
-
-variable "vcores" {
-  type        = number
-  description = "The number of vCores for the instance pool."
-  nullable    = false
-
-  validation {
-    condition     = contains([8, 16, 24, 32, 40, 64, 80, 128], var.vcores)
-    error_message = "The vcores must be one of: 8, 16, 24, 32, 40, 64, 80, or 128."
-  }
-}
-
-variable "maintenance_configuration_id" {
-  type        = string
-  default     = null
-  description = "(Optional) The ID of the maintenance configuration to associate with the instance pool."
 }

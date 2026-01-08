@@ -54,10 +54,10 @@ resource "azurerm_resource_group" "this" {
 
 # Virtual Network for the SQL Instance Pool
 resource "azurerm_virtual_network" "this" {
-  address_space       = ["10.0.0.0/16"]
   location            = azurerm_resource_group.this.location
   name                = module.naming.virtual_network.name_unique
   resource_group_name = azurerm_resource_group.this.name
+  address_space       = ["10.0.0.0/16"]
 }
 
 # Subnet for the SQL Instance Pool
@@ -85,13 +85,12 @@ resource "azurerm_subnet" "this" {
 module "test" {
   source = "../../"
 
+  license_type = "LicenseIncluded"
   # source             = "Azure/avm-res-sql-instancepool/azurerm"
   # ...
   location            = azurerm_resource_group.this.location
   name                = lower(module.naming.sql_managed_instance.name_unique)
   resource_group_name = azurerm_resource_group.this.name
-  enable_telemetry    = var.enable_telemetry # see variables.tf
-
   # SQL Instance Pool specific configuration
   sku = {
     name     = "GP_Gen5"
@@ -99,9 +98,8 @@ module "test" {
     family   = "Gen5"
     capacity = 8
   }
-
-  license_type = "LicenseIncluded"
-  subnet_id    = azurerm_subnet.this.id
-  vcores       = 8
+  subnet_id        = azurerm_subnet.this.id
+  vcores           = 8
+  enable_telemetry = var.enable_telemetry # see variables.tf
 }
 

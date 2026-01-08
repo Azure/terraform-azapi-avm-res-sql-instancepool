@@ -8,7 +8,7 @@
 data "azapi_resource" "operation" {
   count = var.operation_id != null ? 1 : 0
 
-  type      = "Microsoft.Sql/instancePools/operations@2024-05-01-preview"
   name      = var.operation_id
   parent_id = var.instance_pool_id
+  type      = "Microsoft.Sql/instancePools/operations@2024-05-01-preview"
 }
