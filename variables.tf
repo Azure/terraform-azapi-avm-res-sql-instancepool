@@ -90,6 +90,7 @@ A map describing customer-managed keys to associate with the resource. This incl
 DESCRIPTION
 }
 
+# tflint-ignore: terraform_unused_declarations
 variable "diagnostic_settings" {
   type = map(object({
     name                                     = optional(string, null)
@@ -192,8 +193,8 @@ DESCRIPTION
 # tflint-ignore: terraform_unused_declarations
 variable "private_endpoints" {
   type = map(object({
-    name               = optional(string, null)
-    role_assignments   = optional(map(object({
+    name = optional(string, null)
+    role_assignments = optional(map(object({
       role_definition_id_or_name             = string
       principal_id                           = string
       description                            = optional(string, null)
@@ -203,12 +204,12 @@ variable "private_endpoints" {
       delegated_managed_identity_resource_id = optional(string, null)
       principal_type                         = optional(string, null)
     })), {})
-    lock               = optional(object({
+    lock = optional(object({
       kind = string
       name = optional(string, null)
     }), null)
-    tags               = optional(map(string), null)
-    subnet_resource_id = string
+    tags                                    = optional(map(string), null)
+    subnet_resource_id                      = string
     private_dns_zone_group_name             = optional(string, "default")
     private_dns_zone_resource_ids           = optional(set(string), [])
     application_security_group_associations = optional(map(string), {})

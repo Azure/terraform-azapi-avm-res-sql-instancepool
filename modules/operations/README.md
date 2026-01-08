@@ -50,6 +50,10 @@ The following outputs are exported:
 
 Description: The operation resource details.
 
+### <a name="output_resource_id"></a> [resource\_id](#output\_resource\_id)
+
+Description: The ID of the operation resource.
+
 ## Modules
 
 No modules.
