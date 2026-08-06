@@ -2,17 +2,17 @@ terraform {
   required_version = "~> 1.5"
 
   required_providers {
+    azapi = {
+      source  = "Azure/azapi"
+      version = ">= 2.4"
+    }
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 4.21"
-    }
-    modtm = {
-      source  = "azure/modtm"
-      version = "~> 0.3"
+      version = ">= 4.21"
     }
     random = {
       source  = "hashicorp/random"
-      version = "~> 3.5"
+      version = ">= 3.5.0"
     }
   }
 }
@@ -26,7 +26,7 @@ provider "azurerm" {
 # This allows us to randomize the region for the resource group.
 module "regions" {
   source  = "Azure/avm-utl-regions/azurerm"
-  version = "~> 0.1"
+  version = "0.7.0"
 }
 
 # This allows us to randomize the region for the resource group.
@@ -39,26 +39,71 @@ resource "random_integer" "region_index" {
 # This ensures we have unique CAF compliant names for our resources.
 module "naming" {
   source  = "Azure/naming/azurerm"
-  version = "~> 0.3"
+  version = "0.4.2"
 }
 
-# This is required for resource modules
-resource "azurerm_resource_group" "this" {
+# Create resource group
+resource "azapi_resource" "rg" {
   location = module.regions.regions[random_integer.region_index.result].name
   name     = module.naming.resource_group.name_unique
+  type     = "Microsoft.Resources/resourceGroups@2020-06-01"
+}
+
+# Virtual Network for the SQL Instance Pool
+resource "azapi_resource" "vnet" {
+  location  = azapi_resource.rg.location
+  name      = module.naming.virtual_network.name_unique
+  parent_id = azapi_resource.rg.id
+  type      = "Microsoft.Network/virtualNetworks@2023-11-01"
+  body = {
+    properties = {
+      addressSpace = {
+        addressPrefixes = ["10.0.0.0/16"]
+      }
+    }
+  }
+}
+
+# Subnet for the SQL Instance Pool
+resource "azurerm_subnet" "this" {
+  address_prefixes     = ["10.0.1.0/24"]
+  name                 = module.naming.subnet.name_unique
+  resource_group_name  = azapi_resource.rg.name
+  virtual_network_name = azapi_resource.vnet.name
+
+  delegation {
+    name = "managedinstancedelegation"
+
+    service_delegation {
+      name = "Microsoft.Sql/managedInstances"
+      actions = [
+        "Microsoft.Network/virtualNetworks/subnets/join/action",
+        "Microsoft.Network/virtualNetworks/subnets/prepareNetworkPolicies/action",
+        "Microsoft.Network/virtualNetworks/subnets/unprepareNetworkPolicies/action"
+      ]
+    }
+  }
 }
 
 # This is the module call
-# Do not specify location here due to the randomization above.
-# Leaving location as `null` will cause the module to use the resource group location
-# with a data source.
 module "test" {
   source = "../../"
 
-  # source             = "Azure/avm-<res/ptn>-<name>/azurerm"
+  license_type = "LicenseIncluded"
+  # source             = "Azure/avm-res-sql-instancepool/azurerm"
   # ...
-  location            = azurerm_resource_group.this.location
-  name                = "TODO" # TODO update with module.naming.<RESOURCE_TYPE>.name_unique
-  resource_group_name = azurerm_resource_group.this.name
-  enable_telemetry    = var.enable_telemetry # see variables.tf
+  location            = azapi_resource.rg.location
+  name                = "sqlinstpool${random_integer.region_index.result}"
+  resource_group_name = azapi_resource.rg.name
+  # SQL Instance Pool specific configuration
+  sku = {
+    name     = "GP_Gen5"
+    tier     = "GeneralPurpose"
+    family   = "Gen5"
+    capacity = 8
+  }
+  subnet_id        = azurerm_subnet.this.id
+  vcores           = 8
+  enable_telemetry = var.enable_telemetry # see variables.tf
 }
+
