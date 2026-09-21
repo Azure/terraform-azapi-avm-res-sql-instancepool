@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/Azure/azure-verified-modules-tools/main/src/Avm.Authoring/Resources/Schemas/v1/avm-module-metadata.schema.json",
-  "moduleDisplayName": "Azure SQL Managed Instance Pools.",
-  "moduleDescription": "Intended AVM Terraform resource module for Microsoft.Sql/InstancePools.",
+  "moduleDisplayName": "Azure SQL Managed Instance Pools",
+  "moduleDescription": "AVM Terraform resource module for Azure SQL Managed Instance Pools.",
   "canonicalType": "Microsoft.Sql/InstancePools",
   "owners": [
     "sujaypillai"
