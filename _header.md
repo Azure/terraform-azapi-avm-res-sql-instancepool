@@ -1,3 +1,3 @@
-# terraform-azurerm-avm-template
+# Azure SQL Managed Instance Pools
 
-This is a template repo for Terraform Azure Verified Modules.
+AVM Terraform resource module for Azure SQL Managed Instance Pools.
